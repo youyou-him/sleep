@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 기반 수면 건강 코치</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Poppins 폰트 및 아이콘 라이브러리 추가 -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 1rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 2.5rem;
+            border-radius: 1.5rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .glass-section {
+            background: rgba(255, 255, 255, 0.25);
+            border-radius: 16px;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(7px);
+            -webkit-backdrop-filter: blur(7px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .glass-section:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+        }
+        .result-section-container {
+            background: rgba(15, 23, 42, 0.5);
+            color: #ffffff;
+            padding: 2rem;
+            border-radius: 1.25rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: background-color 0.2s;
+        }
+        .glass-card:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .form-input, .form-select {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid #d1d5db;
+            font-size: 1rem;
+            background-color: rgba(255, 255, 255, 0.8);
+        }
+        .form-input:focus, .form-select:focus {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+            outline: none;
+        }
+
+        button[type="submit"] {
+            background: linear-gradient(to right, #818cf8, #6366f1);
+            color: white;
+            font-weight: 600;
+            padding: 0.8rem 1.5rem;
+            border-radius: 0.5rem;
+            width: 100%;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        button[type="submit"]:hover {
+            box-shadow: 0 7px 14px rgba(0,0,0,0.15);
+            transform: translateY(-2px);
+        }
+
+        .result-section-container h2, .result-section-container h3 {
+            color: #ffffff;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+        }
+        .result-section-container p { color: #e0e7ff; }
+        .result-section-container .font-extrabold { color: #ffffff; }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center">
+    <div class="container">
+        <h1 class="text-4xl font-extrabold text-center text-gray-800 mb-4">AI 기반 수면 건강 코치</h1>
+        <p class="text-center text-gray-600 mb-8 max-w-2xl mx-auto">건강 데이터를 바탕으로 수면 건강을 진단하고, 맞춤형 솔루션을 찾아드립니다.</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+            <div class="glass-section p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">기존 사용자 분석</h2>
+                <form action="/analyze_historical" method="post" class="space-y-4">
+                    <label for="user_id_select" class="block text-sm font-medium text-gray-700">사용자 선택:</label>
+                    <select id="user_id_select" name="user_id" class="form-select">
+                        {% for user in user_ids %}
+                        <option value="{{ user }}">{{ user }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="pt-4"><button type="submit">선택 사용자 분석</button></div>
+                </form>
+            </div>
+            <div class="glass-section p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">내 데이터로 즉시 분석</h2>
+                <form action="/manual_analyze" method="post" class="space-y-4">
+                    <!-- Form fields remain the same -->
+                    <div>
+                        <label for="manual_height" class="block text-sm font-medium text-gray-700">키 (cm):</label>
+                        <input type="number" step="0.1" id="manual_height" name="manual_height" oninput="calculateBMI()" class="form-input" placeholder="예: 170.0">
+                    </div>
+                    <div>
+                        <label for="manual_weight" class="block text-sm font-medium text-gray-700">몸무게 (kg):</label>
+                        <input type="number" step="0.1" id="manual_weight" name="manual_weight" oninput="calculateBMI()" class="form-input" placeholder="예: 65.0">
+                    </div>
+                    <div class="text-right text-gray-600">계산된 BMI: <span id="bmi_result_display" class="font-bold text-lg text-indigo-600"></span></div>
+                    <div>
+                        <label for="manual_occupation" class="block text-sm font-medium text-gray-700">직업:</label>
+                        <select id="manual_occupation" name="manual_occupation" class="form-select" required>
+                            <option value="" disabled selected>직업을 선택하세요</option>
+                            <option value="0">의사</option>
+                            <option value="1">엔지니어</option>
+                            <option value="2">변호사</option>
+                            <option value="3">간호사</option>
+                            <option value="4">영업사원</option>
+                            <option value="5">교사</option>
+                            <option value="6">회계사</option>
+                            <option value="7">관리자</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="manual_systolic" class="block text-sm font-medium text-gray-700">수축기 혈압 (mmHg):</label>
+                        <input type="number" id="manual_systolic" name="manual_systolic" class="form-input" placeholder="예: 120">
+                    </div>
+                    <div>
+                        <label for="manual_diastolic" class="block text-sm font-medium text-gray-700">이완기 혈압 (mmHg):</label>
+                        <input type="number" id="manual_diastolic" name="manual_diastolic" class="form-input" placeholder="예: 80">
+                    </div>
+                    <div class="pt-4"><button type="submit">분석 실행</button></div>
+                </form>
+            </div>
+        </div>
+
+        {% if analysis_type == 'manual' and predicted_sleep_quality is not none %}
+        <div class="mt-10 p-8 rounded-xl result-section-container">
+            <h2 class="text-3xl font-bold text-center mb-8">당신의 수면 건강 분석 결과</h2>
+
+            <div class="grid md:grid-cols-2 gap-8">
+                <!-- 왼쪽 컬럼: 점수와 그룹 -->
+                <div class="flex flex-col gap-8">
+                    <!-- 수면 점수 카드 -->
+                    <div class="glass-card text-center p-6 flex flex-col justify-center items-center">
+                         <p class="text-lg text-indigo-200 font-semibold">예측 수면 점수</p>
+                         <span class="text-7xl font-extrabold text-white my-2">{{ predicted_sleep_quality }}</span>
+                         <p class="text-xl font-medium text-indigo-200 mt-1">
+                             {% if predicted_sleep_quality >= 8 %}<span class="text-green-300">매우 우수합니다!</span>
+                             {% elif predicted_sleep_quality >= 6 %}<span class="text-blue-300">양호한 수준입니다.</span>
+                             {% else %}<span class="text-orange-300">주의가 필요합니다.</span>{% endif %}
+                         </p>
+                    </div>
+                    <!-- 그룹 유형 카드 -->
+                    <div class="glass-card text-center p-6">
+                        <p class="text-lg text-indigo-100 font-semibold">당신은 어떤 유형일까요?</p>
+                        <span class="text-3xl font-bold text-white mt-2">그룹 {{ predicted_cluster_id }}</span>
+                        {% if cluster_size %}
+                        <p class="text-sm text-indigo-200 mt-1">(당신과 비슷한 {{ cluster_size }}명의 데이터 그룹)</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- 오른쪽 컬럼: 차트 -->
+                <div class="glass-card p-6">
+                    <!-- ★★★ 핵심 수정: 차트 제목 변경 ★★★ -->
+                    <h3 class="text-xl font-bold text-center mb-4">나 vs. 정상 수치 비교</h3>
+                    {% if chart_user_data %}
+                    <div style="height: 300px;"><canvas id="myGroupComparisonChart"></canvas></div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 하단 섹션: 추천 메시지 -->
+            <div class="mt-8 glass-card p-6">
+                <h3 class="text-xl font-bold mb-2 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    맞춤형 건강 솔루션
+                </h3>
+                <p class="text-md text-indigo-100">{{ recommendation_message | safe }}</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        function calculateBMI() {
+            const heightInput = document.getElementById('manual_height');
+            const weightInput = document.getElementById('manual_weight');
+            const display = document.getElementById('bmi_result_display');
+            if (heightInput && weightInput && display) {
+                const height = parseFloat(heightInput.value);
+                const weight = parseFloat(weightInput.value);
+                if (height > 0 && weight > 0) {
+                    const bmi = weight / ((height / 100) ** 2);
+                    display.textContent = bmi.toFixed(2);
+                } else { display.textContent = ''; }
+            }
+        }
+        window.onload = calculateBMI;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const analysisType = "{{ analysis_type or 'none' }}";
+            if (analysisType === 'manual' && document.getElementById('myGroupComparisonChart')) {
+                const chartUserData = JSON.parse('{{ chart_user_data | tojson | safe }}' || '{}');
+                // ★★★ 핵심 수정: chartClusterAvgData -> normalRangeData 변수명 변경 ★★★
+                const normalRangeData = JSON.parse('{{ normal_range_data | tojson | safe }}' || '{}');
+
+                if (chartUserData && Object.keys(chartUserData).length > 0) {
+                    const ctx = document.getElementById('myGroupComparisonChart').getContext('2d');
+
+                    const myDataGradient = ctx.createLinearGradient(0, 0, 0, 300);
+                    myDataGradient.addColorStop(0, 'rgba(165, 180, 252, 0.8)');
+                    myDataGradient.addColorStop(1, 'rgba(129, 140, 248, 0.8)');
+
+                    const groupAvgGradient = ctx.createLinearGradient(0, 0, 0, 300);
+                    groupAvgGradient.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
+                    groupAvgGradient.addColorStop(1, 'rgba(224, 231, 255, 0.4)');
+
+                    new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: Object.keys(chartUserData),
+                            datasets: [
+                                { label: '나의 데이터', data: Object.values(chartUserData), backgroundColor: myDataGradient, borderRadius: 6 },
+                                // ★★★ 핵심 수정: 차트 라벨 및 데이터 소스 변경 ★★★
+                                { label: '정상 수치', data: Object.values(normalRangeData), backgroundColor: groupAvgGradient, borderRadius: 6 }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: { ticks: { color: 'rgba(255, 255, 255, 0.8)' }, grid: { color: 'rgba(255, 255, 255, 0.2)' } },
+                                x: { ticks: { color: 'rgba(255, 255, 255, 0.8)' }, grid: { display: false } }
+                            },
+                            plugins: {
+                                legend: { labels: { color: 'rgba(255, 255, 255, 0.9)' } }
+                            }
+                        }
+                    });
+                }
+            }
+        });
+    </script>
+</body>
+</html>
+```
+
+위 Canvas의 `index.html` 코드를 적용하시면 웹 페이지의 디자인이 변경됩니다.
+
+하지만 차트가 '정상 수치' 데이터를 올바르게 표시하려면, Flask 서버의 `app.py` 파일도 수정하여 **'정상 수치' 데이터를 보내주도록 변경**해야 합니다.
+
+`app.py` 파일에서 `/manual_analyze` 함수를 찾아 아래 코드로 교체해주세요. 건강한 수면을 위한 일반적인 **정상 수치 데이터를 정의**하고, 이를 웹 페이지로 전달하는 로직이 포함되어 있습니다.
+
+
+```python
+# app.py 파일 상단에 추가
+# ★★★ 핵심 추가: 건강한 수면을 위한 일반적인 정상 수치 정의 ★★★
+healthy_range_data = {
+    '나이': 40,  # '나이'는 비교 대상이지만 '정상' 범위는 없으므로 평균 연령대 정도로 설정
+    '수면 시간': 7.5,
+    '스트레스': 4,
+    '심박수': 70,
+    '평균 동맥압': 93
+}
+
+
+@app.route('/manual_analyze', methods=['POST'])
+def manual_analyze():
+    try:
+        # (기존의 form 데이터 받아오는 부분은 동일)
+        form_data = {
+            'manual_height': float(request.form.get('manual_height')) if request.form.get('manual_height') else None,
+            'manual_weight': float(request.form.get('manual_weight')) if request.form.get('manual_weight') else None,
+            'manual_occupation': int(request.form.get('manual_occupation')) if request.form.get('manual_occupation') else None,
+            'manual_systolic': float(request.form.get('manual_systolic')) if request.form.get('manual_systolic') else None,
+            'manual_diastolic': float(request.form.get('manual_diastolic')) if request.form.get('manual_diastolic') else None,
+        }
+
+        # (기존의 필수 필드 확인 및 피처 엔지니어링 부분은 동일)
+        # ...
+
+        # ★★★ 핵심 수정: avg_dict 대신 healthy_range_data를 사용하도록 변경 ★★★
+        if has_bp:
+            input_df['MAP'] = form_data['manual_diastolic'] + (1/3) * (form_data['manual_systolic'] - form_data['manual_diastolic'])
+            pred_model, pred_features = model_pipeline_with_bp, PREDICTION_FEATURES
+            k_model, k_scaler, k_features, k_scaler_features = kmeans_model, cluster_scaler, KMEANS_FEATURES, SCALER_FEATURES
+        else:
+            pred_model, pred_features = model_pipeline_no_bp, PREDICTION_FEATURES_WITHOUT_BP
+            k_model, k_scaler, k_features, k_scaler_features = kmeans_no_bp_model, scaler_no_bp, KMEANS_FEATURES_NO_BP, SCALER_FEATURES_NO_BP
+
+        # (기존의 수면의 질 예측 및 군집 분류 로직은 동일)
+        # ...
+
+        # 6. 결과 데이터 생성 및 템플릿 렌더링
+        recommendation_message = recommend_sleep(predicted_cluster_id, predicted_sleep_quality, has_bp)
+
+        # 차트 데이터 생성 (사용자 데이터)
+        chart_user_data = {
+            '나이': int(input_df['Age'].iloc[0]),
+            '수면 시간': input_df['Sleep_Duration'].iloc[0],
+            '스트레스': int(input_df['Stress_Level'].iloc[0]),
+            '심박수': int(input_df['Heart_Rate'].iloc[0])
+        }
+
+        # 혈압 정보 있을 경우 차트 데이터에 추가
+        if has_bp:
+            chart_user_data['평균 동맥압'] = round(input_df['MAP'].iloc[0], 1)
+
+        # ★★★ 핵심 수정: 정상 수치 데이터를 필터링하여 전달 ★★★
+        # 사용자의 데이터에 있는 항목과 동일한 항목만 정상 수치에서 추출하여 비교
+        normal_data_for_chart = {key: healthy_range_data[key] for key in chart_user_data.keys() if key in healthy_range_data}
+
+
+        return render_template('index.html',
+                               analysis_type='manual',
+                               predicted_sleep_quality=predicted_sleep_quality,
+                               predicted_cluster_id=predicted_cluster_id,
+                               recommendation_message=recommendation_message,
+                               chart_user_data=chart_user_data,
+                               # ★★★ 핵심 수정: normal_range_data 변수로 전달 ★★★
+                               normal_range_data=normal_data_for_chart
+                               )
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return f"<h1>분석 중 오류가 발생했습니다.</h1><p>{e}</p>", 500
+```
+이제 이 두 가지 코드를 모두 적용하시면, 차트가 '그룹 평균'이 아닌 '정상 수치'와 사용자의 데이터를 비교하여 보여주게 될 것입
