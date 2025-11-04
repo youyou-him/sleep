@@ -35,7 +35,7 @@
 | :--- | :--- |
 | **Language** | Python, JavaScript (JS), HTML, CSS |
 | **Web Framework & API** | **Flask** |
-| **Data Handling & ML** | Scikit-learn (`learn`), Imbalanced-learn (`imbalanced<br>learn`), Joblib |
+| **Data Handling & ML** | Scikit-learn (`learn`), Imbalanced-learn (`imbalanced learn`), Joblib |
 | **Visualization** | Matplotlib, Seaborn |
 | **IDE** | Jupyter, VS Code |
 
